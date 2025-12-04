@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ゆうすけがつくった最強しりとりｗ</title>
+    <style>
+        /* --- AIshiritori --- */
+        body { 
+            font-family: 'Hiragino Kaku Gothic Pro', 'メイリオ', Meiryo, sans-serif; 
+            background-color: #e5ddd5; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            width: 90%;
+            max-width: 500px;
+            height: 80vh; 
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            background-color: #fff;
+            overflow: hidden;
+        }
+        h2 {
+            background-color: #075e54; 
+            color: white;
+            padding: 15px;
+            margin: 0;
+            text-align: center;
+            font-size: 18px;
+            border-bottom: 1px solid #064c43;
+        }
+        
+        /* --- コントロールエリアのレイアウトを調整 --- */
+        #control-area {
+            display: grid;
+            grid-template-columns: 1fr auto; /* 左に難易度、右にボタン類 */
+            gap: 10px;
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+            background-color: #f7f7f7;
+        }
+        
+        #difficulty-select {
+            display: flex;
+            align-items: center;
+        }
+        #difficulty-select label {
+            font-weight: bold;
+            margin-right: 5px;
+            color: #333;
+            font-size: 14px;
+        }
+        #difficulty-select select {
+            padding: 5px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+            flex-grow: 1; /* ドロップダウンを広げる */
+            min-width: 90px;
+        }
+
+        #button-group {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+        
+        #start-button, #reset-button {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            white-space: nowrap; /* ボタン内のテキストを折り返さない */
+        }
+        
+        #start-button {
+            background-color: #ffc107;
+            color: #212529;
+            font-weight: bold;
+        }
+        #reset-button {
+            background-color: #dc3545;
+            color: white;
+        }
+        #reset-button:hover {
+            background-color: #c82333;
+        }
+
+        /* --- メッセージエリア (略) --- */
+        #word-list {
+            list-style: none;
+            padding: 10px;
+            margin: 0;
+            flex-grow: 1;
+            overflow-y: auto;
+            background-color: #e5ddd5;
+        }
+        
+        /* メッセージバブルのスタイル (略) */
+        #word-list li {
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border-radius: 10px;
+            max-width: 70%;
+            word-wrap: break-word;
+            clear: both; 
+        }
+        .player-turn {
+            background-color: #dcf8c6; 
+            float: right;
+            margin-left: auto;
+        }
+        .ai-turn {
+            background-color: #fff; 
+            border: 1px solid #e0e0e0;
+            float: left;
+            margin-right: auto;
+        }
+        
+        /* ステータス/ルール表示 */
+        #status {
+            padding: 10px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: bold;
+            color: #777;
+        }
+        .rule-info {
+            font-size: 12px;
+            color: #999;
+            text-align: center;
+            padding-bottom: 5px;
+            padding-top: 5px;
+            border-top: 1px solid #ddd;
+        }
+
+        /* --- 入力エリア --- */
+        #input-area {
+            display: flex;
+            padding: 10px;
+            background-color: #f7f7f7;
+            border-top: 1px solid #ddd;
+        }
+        #user-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 20px; 
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        #submit-button {
+            padding: 10px 15px;
+            background-color: #128c7e; 
+            color: white;
+            border: none;
+            border-radius: 20px; 
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+        #submit-button:hover {
+            background-color: #0e6c61;
+        }
+        #submit-button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>しりとりチャット 🗣️ (AI対戦)</h2>
+        
+        <div id="control-area">
+            <div id="difficulty-select">
+                <label for="difficulty">難易度:</label>
+                <select id="difficulty" onchange="showStartScreen()">
+                    <option value="easy">イージー</option>
+                    <option value="normal" selected>ノーマル</option>
+                    <option value="hard">ハード</option>
+                    <option value="free">フリー</option>
+                </select>
+            </div>
+            <div id="button-group">
+                <button id="start-button" onclick="initializeGame()">ゲーム開始</button>
+                <button id="reset-button" onclick="showStartScreen()">リセット</button>
+            </div>
+        </div>
+        
+        <ul id="word-list">
+            </ul>
+        
+        <div id="status"></div>
+
+        <p class="rule-info">
+            **重要ルール:** 使えるのは**ひらがな**と**カタカナ**のみです。**漢字は使えません**。
+        </p>
+        
+        <div id="input-area">
+            <input type="text" id="user-input" placeholder="難易度を選択し、「ゲーム開始」ボタンを押してください。" disabled>
+            <button id="submit-button" onclick="submitWord()" disabled>送信</button>
+        </div>
+        
+    </div>
+
+    <script>
+        // --- ゲーム状態変数とDOM要素 ---
+        let currentWords = [];      
+        let lastChar = '';          
+        let gameActive = false;
+        let difficultySettings = {}; 
+
+        const statusDisplay = document.getElementById('status');
+        const wordListElement = document.getElementById('word-list');
+        const userInput = document.getElementById('user-input');
+        const submitButton = document.getElementById('submit-button');
+        const startButton = document.getElementById('start-button');
+        const difficultySelector = document.getElementById('difficulty');
+
+        // --- 難易度ごとの設定 ---
+        const DIFF_SETTINGS = {
+            'easy': {
+                delay: 2000, 
+                wordPreference: 'short', 
+                limit: 5,    
+                display: 'イージー',
+            },
+            'normal': {
+                delay: 1000, 
+                wordPreference: 'none', 
+                limit: 10,   
+                display: 'ノーマル',
+            },
+            'hard': {
+                delay: 700,  
+                wordPreference: 'long', 
+                limit: 999,   
+                display: 'ハード',
+            },
+            'free': {
+                delay: 400,  
+                wordPreference: 'none', 
+                limit: 999,   
+                display: 'フリー',
+            }
+        };
+
+        // --- 濁音・半濁音を考慮した文字変換マップ (変更なし) ---
+        const charMap = {
+            'が': 'か', 'ぎ': 'き', 'ぐ': 'く', 'げ': 'け', 'ご': 'こ',
+            'ざ': 'さ', 'じ': 'し', 'ず': 'す', 'ぜ': 'せ', 'ぞ': 'そ',
+            'だ': 'た', 'ぢ': 'ち', 'づ': 'つ', 'で': 'て', 'ど': 'と',
+            'ば': 'は', 'び': 'ひ', 'ぶ': 'ふ', 'べ': 'へ', 'ぼ': 'ほ',
+            'ぱ': 'は', 'ぴ': 'ひ', 'ぷ': 'ふ', 'ぺ': 'へ', 'ぽ': 'ほ',
+            'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お',
+            'ゃ': 'や', 'ゅ': 'ゆ', 'ょ': 'よ', 'っ': 'つ', 'ゎ': 'わ',
+            'を': 'お', 
+            'ー': '' 
+        };
+        
+        // --- 拡張されたAIが使用する単語リスト (変更なし) ---
+        const aiWords = {
+            'あ': ['あり', 'あんず', 'アボカド', 'アヒル', 'アイスクリーム', 'アルゴリズム', 'アスペクトヒ', 'アポロケイカク', 'アクリルえのぐ', 'アクセスケン', 'アンプリファイア', 'アレルギーセイビエン', 'アメニティ', 'アジェンダ', 'アトランティス', 'アニバーサリー', 'アンプ'],
+            'い': ['いぬ', 'いちご', 'インターネット', 'イチョウ', 'インデックス', 'イノベーション', 'インフルエンサー', 'インターフェース', 'イラストレーション', 'イリュージョン', 'インフレ', 'イロハニホヘト', 'インテリジェンス', 'イグアナ', 'イーストキン', 'イオニアシキ', 'イリュミナシオン'],
+            'う': ['うさぎ', 'うどん', 'ウイルス', 'ウユニエンコ', 'ウエハース', 'ウーパールーパー', 'ウミネコ', 'ウール', 'うちゅうヒコウシ', 'ウラニウム', 'ウツボ', 'ウクレレ', 'うつろい', 'ウミガメ', 'ウイスキー', 'ウレタン', 'ウルトラスーパーデラックス'],
+            'え': ['えんぴつ', 'エナメル', 'エベレスト', 'エレベーター', 'エネルギー', 'エコロジー', 'エポックメイキング', 'エスカレーター', 'エンジニアリング', 'エッセイスト', 'エメラルド', 'エトセトラ', 'エリアマネージャー', 'エキゾチック', 'エンサイクロペディア', 'エチケット', 'エトワール'],
+            'お': ['おにぎり', 'オレンジ', 'オーケストラ', 'オリンピック', 'オウム', 'オゾンソウ', 'オーロラ', 'オペレーション', 'オシロスコープ', 'オムニバス', 'オプティミズム', 'オノマトペ', 'オムレツ', 'オランダガラシ', 'オフィシャル', 'オアシス', 'オードブル'],
+            'か': ['かめ', 'カメラ', 'カメレオン', 'カシオペアザ', 'カーボンニュートラル', 'カリスマ', 'カクテル', 'カレンダー', 'カスタマイズ', 'カナリア', 'カシミヤ', 'カタストロフィ', 'カタルシス', 'カイロプラクティック', 'カプセルホテル', 'カタツムリ', 'カテドラル'],
+            'き': ['きりん', 'きっぷ', 'キーボード', 'キムチ', 'キャパシティ', 'キュウリ', 'キネマ', 'キャンドル', 'キャリアパス', 'キリマンジャロ', 'キノコ', 'ギャラクシー', 'ギロチン', 'キャッチボール', 'キルティング', 'ギガバイト', 'キットカット'],
+            'く': ['くま', 'くつ', 'クローバー', 'クレーター', 'クラウドコンピューティング', 'クライアント', 'クリアファイル', 'クリスタル', 'クリーンエネルギー', 'クラシックオンガク', 'クォンタムリープ', 'クレープ', 'クジャク', 'クーデター', 'クリスマス', 'クレイジー', 'クルミ'],
+            'け': ['けいと', 'ケーキ', 'ケーブルカー', 'ケミストリー', 'ケンタウロス', 'ケータイデンワ', 'ケロシン', 'ケージ', 'ケープ', 'ケンネル', 'ケープタウン', 'ケープコッド', 'ケチャップ', 'ケルビン', 'ケンケンパ', 'ケヤキ', 'ケルト'],
+            'こ': ['こい', 'コーヒー', 'コンサート', 'コンピューター', 'コロナウイルス', 'コアラ', 'コミュニケーション', 'コンクリート', 'コンセプト', 'コメディアン', 'コピーライト', 'コモディティ', 'コンドル', 'コーヒーマメ', 'コブラ', 'コンデンサー', 'コーラス'],
+            'さ': ['さかな', 'さくら', 'サボテン', 'サンドイッチ', 'サイクリング', 'サテライト', 'サファリパーク', 'サスティナビリティ', 'サプライズ', 'サックスフォン', 'サラダバー', 'サファイア', 'サグラダファミリア', 'サスペンス', 'サバンナ', 'サイボーグ', 'サービスエリア'],
+            'し': ['しんぶん', 'しりとり', 'シュウマイ', 'シンフォニー', 'システムエンジニア', 'シャボン玉', 'シミュレーション', 'ショパン', 'ショートケーキ', 'シリアルキラー', 'シェイクスピア', 'シャワー', 'シュークリーム', 'シティホテル', 'シーラカンス', 'シガー', 'シナリオ'],
+            'す': ['すいか', 'すし', 'スカート', 'スフィンクス', 'スマートフォン', 'スキャナー', 'スタンダード', 'スイッチ', 'スプリンクラー', 'スケートボード', 'スコティッシュフォールド', 'ストリーミング', 'スケジュール', 'スクランブルコウサテン', 'スピードイハン', 'スワン', 'スキップ'],
+            'せ': ['せんたくき', 'せんべい', 'セーター', 'セメント', 'セキュリティ', 'セレモニー', 'センサー', 'セロハンテープ', 'セバスチャン', 'セカンドオピニオン', 'セルフィー', 'セプテンバー', 'セパレート', 'ゼラチン', 'セキュア', 'セグウェイ', 'セリーグ'],
+            'そ': ['そら', 'ソファ', 'ソーセージ', 'ソムリエ', 'ソプラノ', 'ソフトウェア', 'ソリューション', 'ソロモン', 'ソクラテス', 'ソリッド', 'ソーラーパネル', 'ソネット', 'ソックス', 'ソテー', 'ソフィスティケート', 'ソバカス', 'ソルト'],
+            'た': ['たまご', 'タクシー', 'タイタニック', 'タペストリー', 'タブレット', 'ダイヤモンド', 'タスクフォース', 'タイムカプセル', 'タイポグラフィ', 'ターミナル', 'タンポポ', 'タキシード', 'タングステン', 'タルト', 'ターゲット', 'タンゴ', 'タワーマンション'],
+            'ち': ['ちず', 'ちくわ', 'チョコレート', 'チェロ', 'チャンス', 'チューリップ', 'チャレンジセイシン', 'チーター', 'チャイム', 'チャンプルー', 'チップス', 'チェス', 'チアリーダー', 'チケット', 'チャペル', 'チタニウム', 'チャンネル'],
+            'つ': ['つくえ', 'ツバメ', 'ツナカン', 'ツアーガイド', 'ツルハシ', 'ツイスター', 'ツバキ', 'ツンデレ', 'ツェッペリン', 'ツバメ', 'ツムジカゼ', 'ツリーハウス', 'ツインタワー', 'ツノ', 'ツボ', 'ツツジ', 'ツキ'],
+            'て': ['てぶくろ', 'テレビ', 'テントウムシ', 'テキサス', 'テニス', 'テクノロジー', 'テンプレート', 'テーブルクロス', 'デジャヴ', 'デモクラシー', 'デトックス', 'テラコッタ', 'テロリスト', 'デパートメントストア', 'テンプル', 'テディベア', 'テキーラ'],
+            'と': ['とけい', 'トマト', 'トナカイ', 'トランスフォーマー', 'トロンボーン', 'トレーニング', 'トパーズ', 'トワイライト', 'ドローン', 'ドキュメンタリー', 'ドラムカン', 'トランプタワー', 'ドミナント', 'トランクス', 'トビウオ', 'トップシークレット', 'トーナメント'],
+            'な': ['ながねぎ', 'なす', 'ナノテクノロジー', 'ナイルガワ', 'ナトリウム', 'ナイチンゲール', 'ナプキン', 'ナマケモノ', 'ナンバープレート', 'ナツメグ', 'ナルシスト', 'ナッツ', 'ナビゲーター', 'ナッシュビル', 'ナポリタン', 'ナショナル', 'ナフタリン'],
+            'に': ['にわとり', 'にんじん', 'ニュース', 'ニンテンドー', 'ニコン', 'ニワトコ', 'ニッケル', 'ニャンコ', 'ニシキヘビ', 'ニキビ', 'ニラ', 'ニッチ', 'ニーハイソックス', 'ニュアンス', 'ニンフ', 'ニックネーム', 'ニルヴァーナ'],
+            'ぬ': ['ぬいぐる', 'ぬかづけ', 'ぬりえ', 'ぬるぬる', 'ぬけがら', 'ぬの', 'ぬま', 'ぬくもり', 'ぬれせんべい', 'ぬけミチ', 'ぬるまユ', 'ぬかみそ', 'ぬけミチ', 'ぬれぎぬ', 'ぬかるみ', 'ぬけさく', 'ぬきうち'],
+            'ね': ['ねこ', 'ねずみ', 'ネクタイ', 'ネオンサイン', 'ネジ', 'ネックレス', 'ネバーランド', 'ネクストジェネレーション', 'ネイルアート', 'ネットサーフィン', 'ネスト', 'ネロ', 'ネバネバ', 'ネプチューン', 'ネズミモチ', 'ネクタリン', 'ネットカフェ'],
+            'の': ['のり', 'ノート', 'ノースカロライナ', 'ノスタルジー', 'ノイズキャンセリング', 'ノベルティ', 'ノックダウン', 'ノアノハコブネ', 'ノンフィクション', 'ノラネコ', 'ノスタルジック', 'ノルウェー', 'ノベルショウ', 'ノースリーブ', 'ノロウイルス', 'ノスタルジア', 'ノマド'],
+            'は': ['はさみ', 'バナナ', 'パソコン', 'ハンバーガー', 'ハリケーン', 'ハイブリッド', 'パラダイス', 'ハプニング', 'パノラマ', 'ハワイ', 'パステルカラー', 'バスケットボール', 'ハルシオン', 'パピヨン', 'ハーモニー', 'パシフィック', 'ハチミツ'],
+            'ひ': ['ひこうき', 'ひまわり', 'ピアノ', 'ピラミッド', 'ヒッチハイク', 'ビデオゲーム', 'ビタミン', 'ヒマラヤサンミャク', 'ヒエログリフ', 'ピクセル', 'ビジョン', 'ヒートアイランド', 'ビーダマ', 'ピアノソナタ', 'ビジネス', 'ヒグマ', 'ビートタケシ'],
+            'ふ': ['ふね', 'ふとん', 'フィルム', 'フォークリフト', 'フリーランス', 'フェニックス', 'ファンタジー', 'フラスコ', 'ファッション', 'フュージョンリョウリ', 'フィロソフィー', 'フェンス', 'フォトジェニック', 'フライパン', 'フルート', 'フリスビー', 'フェスティバル'],
+            'へ': ['へび', 'ヘリコプター', 'ヘッドホン', 'ヘリウム', 'ベテラン', 'ペースメーカー', 'ヘラクレス', 'ベルサイユキュウデン', 'ペガサス', 'ペリカン', 'ベロシティ', 'ヘビーローテーション', 'ペースメーカー', 'ペットボトル', 'ヘッジホッグ', 'ヘチマ', 'ペンダント'],
+            'ほ': ['ほし', 'ホテル', 'ボート', 'ホームラン', 'ホログラム', 'ボリューム', 'ポスター', 'ホワイトボード', 'ホライズン', 'ボルダリング', 'ポテンシャル', 'ポートレート', 'ホタテ', 'ボヘミアン', 'ポジティブ', 'ポケットモンスター', 'ホタル'],
+            'ま': ['まくら', 'マイク', 'マトリックス', 'マウンテンバイク', 'マジックミラー', 'マニュアル', 'マネジメント', 'マグネシウム', 'マカロン', 'マッサージチェア', 'マフラー', 'マスコット', 'マエストロ', 'マスカット', 'マリアナカイコウ', 'マニフェスト', 'マントヒヒ'],
+            'み': ['みかん', 'みず', 'ミュージカル', 'ミステリー', 'ミニチュア', 'ミレニアム', 'ミシシッピガワ', 'ミラーボール', 'ミイラ', 'ミント', 'ミサイル', 'ミツバチ', 'ミツケタ', 'ミニマリスト', 'ミルクティー', 'ミリタリー', 'ミソスープ'],
+            'む': ['むし', 'むらさき', 'ムーンライト', 'ムーブメント', 'ムラサメ', 'ムクドリ', 'ムスカリ', 'ムエタイ', 'ムツゴロウ', 'ムーンウォーク', 'ムードメーカー', 'ムース', 'ムクゲ', 'ムダ', 'ムラマサ', 'ムササビ', 'ムートン'],
+            'め': ['めがね', 'めだま', 'メディア', 'メープルシロップ', 'メロディー', 'メタリック', 'メソッド', 'メカニズム', 'メッセージカード', 'メリット', 'メッセンジャー', 'メロンパン', 'メリクリ', 'メキシコ', 'メートルホウ', 'メンタルヘルス', 'メス'],
+            'も': ['もも', 'モーター', 'モザイクアート', 'モルモット', 'モデレーター', 'モノレール', 'モバイルバッテリー', 'モンスーン', 'モザイクガ', 'モダンアート', 'モンブラン', 'モデム', 'モザイクタイル', 'モナリザ', 'モヘア', 'モンゴル', 'モーニングコール'],
+            'や': ['やさい', 'やきゅう', 'ヤマハ', 'ヤモリ', 'ヤシノキ', 'ヤングアダルト', 'ヤギ', 'ヤスリ', 'ヤフオク', 'ヤマトウンユ', 'ヤモリ', 'ヤマタノオロチ', 'ヤドカリ', 'ヤシガラ', 'ヤクザ', 'ヤリイカ', 'ヤーン'],
+            'ゆ': ['ゆき', 'ゆめ', 'ユニコーン', 'ユートピア', 'ユーモア', 'ユリウスレキ', 'ユッケ', 'ユースホステル', 'ユンボ', 'ユダヤキョウ', 'ユグドラシル', 'ユビキタス', 'ユネスコ', 'ユースケース', 'ユリ', 'ユニバーサル', 'ユカリ'],
+            'よ': ['よる', 'ヨーグルト', 'ヨット', 'ヨーロッパ', 'ヨガ', 'ヨドバシカメラ', 'ヨコハマ', 'ヨットハーバー', 'ヨコヅナ', 'ヨウソ', 'ヨガマット', 'ヨーヨー', 'ヨットクラブ', 'ヨットレース', 'ヨットマン', 'ヨットノリ', 'ヨットアソビ'],
+            'ら': ['らくだ', 'ラジオ', 'ラビリンス', 'ライブラリー', 'ラーメン', 'ラベンダー', 'ランプシェード', 'ランドセル', 'ラジコン', 'ラテアート', 'ラプソディ', 'ラジオタイソウ', 'ランニングシューズ', 'ラストボス', 'ラジエーター', 'ラッキーセブン', 'ライスシャワー'],
+            'り': ['りんご', 'りす', 'リサイク', 'リサイクル', 'リフレッシュ', 'リモートワーク', 'リアクション', 'リチウムイオンデンチ', 'リハーサル', 'リゾートチ', 'リテラシー', 'リベラルアーツ', 'リバース', 'リノベーション', 'リゾートホテル', 'リスニング', 'リボン'],
+            'る': ['るすばん', 'ルビー', 'ルーレット', 'ルールブック', 'ルームサービス', 'ルネサンス', 'ルクセンブルク', 'ルーズリーフ', 'ルパンサンセイ', 'ルネッサンス', 'ルーペ', 'ルアー', 'ルンバ', 'ルーツ', 'ルネサンスケンチク', 'ルームメイト'],
+            'れ': ['れんこん', 'レモン', 'レコーダー', 'レストラン', 'レゴブロック', 'レベルアップ', 'レジャーシート', 'レガシー', 'レギュレーション', 'レモンティー', 'レモンサワー', 'レインコート', 'レトルトショクヒン', 'レシート', 'レプリカ', 'レジスタンス', 'レクイエム'],
+            'ろ': ['ろうそく', 'ロボット', 'ロープウェイ', 'ロケット', 'ローカルセン', 'ロジック', 'ロマンス', 'ロングテール', 'ロサンゼルス', 'ロイヤルミルクティー', 'ロケーション', 'ロマンチスト', 'ローストビーフ', 'ローリエ', 'ロンドン', 'ロシアゴ', 'ロープ'],
+            'わ': ['わに', 'ワイン', 'ワイヤレスイヤホン', 'ワーキングホリデー', 'ワッフル', 'ワカメ', 'ワニガワ', 'ワサビ', 'ワット', 'ワカサギ', 'ワンダーランド', 'ワイルドカード', 'ワールドカップ', 'ワニグチクリップ', 'ワイヤレスジュウデン', 'ワッショイ', 'ワックス'],
+            'を': [],
+            'ん': [],
+        };
+        
+        // --- ひらがなをカタカナに変換する関数 (変更なし) ---
+        function toKatakana(text) {
+            return text.replace(/[\u3041-\u3096]/g, function(match) {
+                const chr = match.charCodeAt(0) + 0x60;
+                return String.fromCharCode(chr);
+            });
+        }
+
+        // --- 濁音・半濁音のルールを考慮して比較しやすい文字（清音ひらがな）を取得する関数 (変更なし) ---
+        function getBaseChar(char) {
+            if (!char) return '';
+            
+            let hiraChar = char.replace(/[\u30a1-\u30f6]/g, function(match) {
+                return String.fromCharCode(match.charCodeAt(0) - 0x60);
+            });
+            
+            if (charMap[hiraChar]) {
+                return charMap[hiraChar];
+            }
+            return hiraChar;
+        }
+
+        // --- 全角文字の判定関数 (漢字判定ロジックを分離) ---
+        function isZenkaku(str) {
+            // 全角文字の一般的な範囲をチェック (ひらがな、カタカナ、漢字を含む)
+            for (let i = 0; i < str.length; i++) {
+                if (str.charCodeAt(i) >= 0x3000 || str.charCodeAt(i) <= 0xFFEF && str.charCodeAt(i) >= 0xFF01) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // --- 漢字判定関数 (追加) ---
+        function containsKanji(str) {
+            // 漢字の一般的なUnicode範囲 (CJK Unified Ideographs)
+            const kanjiRegex = /[\u4e00-\u9faf]/;
+            return kanjiRegex.test(str);
+        }
+
+        // --- ユーザーの単語を処理する関数 (ルールチェックを修正) ---
+        function submitWord() {
+            if (!gameActive) return;
+
+            let word = userInput.value.trim();
+            let originalWord = word;
+            userInput.value = ''; 
+            
+            if (word.length === 0) {
+                alert('単語を入力してください。');
+                return;
+            }
+
+            // 1. 全角入力チェック (今回は必須ではないが、漢字チェックのための前処理として残す)
+            if (!isZenkaku(word)) {
+                 alert('ルール違反！全角文字（ひらがな、カタカナ）で入力してください。ざまあみろｗ');
+                return;
+            }
+            
+            // 2. 漢字禁止チェック (追加)
+            if (containsKanji(word)) {
+                 alert('ルール違反！漢字は使えません。ひらがなかカタカナで入力してください。ざまあみろｗ');
+                return;
+            }
+
+            // 長音符を無視して、ルールチェックに使う「最後の文字」を決定
+            let normalizedWord = originalWord;
+            let lastUsedChar = normalizedWord.slice(-1);
+            let tempWord = normalizedWord;
+            while (lastUsedChar === 'ー' && tempWord.length > 1) {
+                tempWord = tempWord.slice(0, -1);
+                lastUsedChar = tempWord.slice(-1);
+            }
+            
+            let baseLastChar = getBaseChar(lastUsedChar); 
+            let baseFirstChar = getBaseChar(normalizedWord.charAt(0)); 
+
+            // 3. 接続ルールチェック (最初のターン以外)
+            if (currentWords.length > 0) {
+                if (baseFirstChar !== lastChar) { 
+                    alert(`ルール違反！次は「${toKatakana(lastChar)}」で始めてください。入力された文字は「${baseFirstChar}」に対応します。`);
+                    return;
+                }
+            }
+
+            // 4. 「ん」チェック
+            if (baseLastChar === 'ん') {
+                gameOver(`「ん」で終わったため、あなたの負けです！ざこが！ｗｗｗ`);
+                return;
+            }
+
+            // 5. 重複チェック (カタカナとひらがなの両方でチェック)
+            if (currentWords.includes(originalWord) || currentWords.includes(toKatakana(originalWord)) || currentWords.includes(originalWord.replace(/[\u30a1-\u30f6]/g, function(match){return String.fromCharCode(match.charCodeAt(0) - 0x60);})) ) {
+                gameOver(`「${originalWord}」は既に使用されています。あなたの負けです！`);
+                return;
+            }
+
+            // --- 成功：単語をリストに追加 ---
+            currentWords.push(originalWord);
+            lastChar = baseLastChar; 
+            addToList(originalWord, 'player-turn', 'あなた');
+
+            // --- AIのターン ---
+            const currentTurn = Math.floor(currentWords.length / 2) + 1;
+            statusDisplay.textContent = `次は「${toKatakana(lastChar)}」で始まります。AIの思考中... (${difficultySettings.display} / 現在${currentTurn}手目)`;
+            submitButton.disabled = true;
+
+            setTimeout(aiTurn, difficultySettings.delay); 
+        }
+
+        // --- AIの応答を処理する関数 (変更なし) ---
+        function aiTurn() {
+            if (!gameActive) return;
+
+            const searchChar = lastChar;
+            const currentTurn = Math.floor(currentWords.length / 2) + 1; 
+            let possibleWords = aiWords[searchChar];
+
+            if (!possibleWords || possibleWords.length === 0) {
+                gameOver(`AIは「${toKatakana(lastChar)}」で始まる単語を見つけられませんでした。あなたの勝ちです！`);
+                return;
+            }
+
+            // 1. 未使用の単語のみをフィルタリング
+            let unusedWords = possibleWords.filter(word => 
+                !currentWords.includes(word) && !currentWords.includes(toKatakana(word))
+            );
+
+            if (unusedWords.length === 0) {
+                gameOver(`AIは新しい単語を見つけられませんでした。あなたの勝ちです！`);
+                return;
+            }
+
+            // 2. 難易度に応じた単語のソート
+            if (difficultySettings.wordPreference === 'short') {
+                unusedWords.sort((a, b) => a.length - b.length);
+            } else if (difficultySettings.wordPreference === 'long') {
+                unusedWords.sort((a, b) => b.length - a.length);
+            } else {
+                unusedWords.sort(() => 0.5 - Math.random());
+            }
+
+            // 3. 難易度に応じた語彙の選択肢の制限
+            const limitedWords = unusedWords.slice(0, difficultySettings.limit);
+
+            // 4. 「ん」で終わる単語の処理
+            let chosenWord = null;
+            let nGomeWords = []; 
+
+            for (let word of limitedWords) {
+                let tempWord = word;
+                let lastCharCheck = tempWord.slice(-1);
+                while (lastCharCheck === 'ー' && tempWord.length > 1) {
+                    tempWord = tempWord.slice(0, -1);
+                    lastCharCheck = tempWord.slice(-1);
+                }
+                let baseLastChar = getBaseChar(lastCharCheck);
+
+                if (baseLastChar === 'ん') {
+                    nGomeWords.push(word);
+                } else {
+                    chosenWord = word; 
+                    break;
+                }
+            }
+            
+            // 5. AIが負ける条件: 10手以降かつ「ん」以外の単語がない場合
+            if (!chosenWord && currentTurn >= 10 && nGomeWords.length > 0) {
+                chosenWord = nGomeWords[0]; 
+            } else if (!chosenWord && nGomeWords.length > 0) {
+                // 10手未満で「ん」以外の単語がない場合、ゲームオーバー（AIの勝ち）
+                gameOver(`AIは「ん」以外の単語を見つけられませんでした。あなたの勝ちです！(※AIが「ん」で終わる単語を選べるのは10手目以降です)`);
+                return;
+            } else if (!chosenWord && nGomeWords.length === 0) {
+                // 単語が見つからない場合（語彙切れ）
+                gameOver(`AIは新しい単語を見つけられませんでした。あなたの勝ちです！`);
+                return;
+            }
+
+            // --- 成功：AIの単語をリストに追加 ---
+            let aiDisplayWord = toKatakana(chosenWord);
+            
+            // 次のターンのための末尾文字（清音ひらがな）を決定
+            let tempWord = chosenWord;
+            let lastUsedChar = tempWord.slice(-1);
+            while (lastUsedChar === 'ー' && tempWord.length > 1) {
+                tempWord = tempWord.slice(0, -1);
+                lastUsedChar = tempWord.slice(-1);
+            }
+            
+            let baseLastChar = getBaseChar(lastUsedChar);
+
+            if (baseLastChar === 'ん') {
+                gameOver(`AIが「ン」で終わったため、あなたの勝ちです！`);
+                return;
+            }
+
+            currentWords.push(aiDisplayWord); 
+            lastChar = baseLastChar; 
+            addToList(aiDisplayWord, 'ai-turn', 'AI');
+
+            // --- プレイヤーのターンに戻る ---
+            statusDisplay.textContent = `次は「${toKatakana(lastChar)}」で始まります。あなたの番です。 (${difficultySettings.display} / 現在${currentTurn}手目)`;
+            submitButton.disabled = false;
+            userInput.focus();
+        }
+
+        // --- 単語を画面リストに追加する関数 (変更なし) ---
+        function addToList(word, className, speaker) {
+            const listItem = document.createElement('li');
+            listItem.classList.add(className);
+            listItem.textContent = word;
+            wordListElement.appendChild(listItem);
+            wordListElement.scrollTop = wordListElement.scrollHeight;
+        }
+
+        // --- ゲームオーバー処理 (変更なし) ---
+        function gameOver(message) {
+            gameActive = false;
+            statusDisplay.textContent = `ゲームオーバー！ ${message} リセットボタンで再開してください。`;
+            submitButton.disabled = true;
+            addToList("ゲームオーバーです。リセットボタンを押して再開してくださいね！", 'ai-turn', 'AI');
+        }
+
+        // --- ゲーム開始前の初期画面を表示する関数 (変更なし) ---
+        function showStartScreen() {
+            gameActive = false;
+            currentWords = [];
+            lastChar = '';
+            wordListElement.innerHTML = '';
+            
+            const selectedDifficulty = difficultySelector.value;
+            difficultySettings = DIFF_SETTINGS[selectedDifficulty];
+
+            const startMsg = `難易度: ${difficultySettings.display} が選択されています。ゲーム開始ボタンを押してください。`;
+            statusDisplay.textContent = startMsg;
+            userInput.placeholder = "難易度を選択し、「ゲーム開始」ボタンを押してください。";
+
+            userInput.disabled = true;
+            submitButton.disabled = true;
+            startButton.disabled = false;
+        }
+
+        // --- ゲーム初期化と開始 (変更なし) ---
+        function initializeGame() {
+            gameActive = true;
+            currentWords = [];
+            lastChar = '';
+            wordListElement.innerHTML = '';
+
+            const selectedDifficulty = difficultySelector.value;
+            difficultySettings = DIFF_SETTINGS[selectedDifficulty];
+            
+            const startMsg = `難易度「${difficultySettings.display}」で開始！最初の単語を入力してください。`;
+            statusDisplay.textContent = startMsg;
+            userInput.placeholder = "ひらがな・カタカナで入力してください。";
+            
+            userInput.disabled = false;
+            submitButton.disabled = false;
+            startButton.disabled = true;
+            userInput.focus();
+        }
+        
+        // --- Enterキーで送信できるようにするイベントリスナー (変更なし) ---
+        userInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && gameActive) {
+                if (e.isComposing === false) { 
+                    e.preventDefault(); 
+                    submitWord();
+                }
+            }
+        });
+
+        // ページの読み込み完了後に初期画面を表示
+        document.addEventListener('DOMContentLoaded', showStartScreen);
+    </script>
+
+</body>
+</html>
